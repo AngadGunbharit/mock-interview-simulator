@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mock Interview Simulator — Angad Gunbharit</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0d0d;
+      --surface: #161616;
+      --surface2: #1e1e1e;
+      --border: rgba(255,255,255,0.08);
+      --border-hover: rgba(255,255,255,0.18);
+      --text: #f0ede8;
+      --text-muted: #888;
+      --text-faint: #555;
+      --accent: #c8f060;
+      --accent-dim: rgba(200,240,96,0.12);
+      --accent-text: #0d0d0d;
+      --red: #ff6b6b;
+      --amber: #ffb347;
+      --teal: #5ef0c8;
+      --blue: #6eb5ff;
+      --radius: 10px;
+      --radius-lg: 16px;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 2rem 1rem 4rem;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 680px;
+    }
+
+    /* Header */
+    .site-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2.5rem;
+      padding-bottom: 1.25rem;
+      border-bottom: 0.5px solid var(--border);
+    }
+    .logo {
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      color: var(--accent);
+      letter-spacing: 0.04em;
+    }
+    .header-tag {
+      font-size: 11px;
+      color: var(--text-faint);
+      font-family: 'DM Mono', monospace;
+      letter-spacing: 0.06em;
+    }
+
+    /* Setup */
+    .setup-title { font-size: 26px; font-weight: 600; margin-bottom: 6px; line-height: 1.2; }
+    .setup-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 2rem; }
+
+    .config-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .config-group label {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-faint);
+      margin-bottom: 7px;
+      font-family: 'DM Mono', monospace;
+    }
+    select {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 14px;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23666'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+    }
+    select:focus { outline: none; border-color: var(--accent); }
+    select option { background: #1e1e1e; }
+
+    .btn-start {
+      width: 100%;
+      margin-top: 1.5rem;
+      padding: 14px;
+      background: var(--accent);
+      color: var(--accent-text);
+      border: none;
+      border-radius: var(--radius);
+      font-size: 15px;
+      font-weight: 600;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      letter-spacing: 0.01em;
+    }
+    .btn-start:hover { opacity: 0.9; }
+    .btn-start:active { transform: scale(0.99); }
+    .btn-start:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Interview */
+    .interview-section { display: none; }
+
+    .prog-track {
+      height: 2px;
+      background: var(--border);
+      border-radius: 2px;
+      margin-bottom: 1.75rem;
+      overflow: hidden;
+    }
+    .prog-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.5s ease;
+    }
+
+    .q-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .q-type-badge {
+      font-size: 11px;
+      font-family: 'DM Mono', monospace;
+      letter-spacing: 0.06em;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 0.5px solid;
+    }
+    .badge-pm    { color: var(--accent); border-color: rgba(200,240,96,0.3); background: rgba(200,240,96,0.07); }
+    .badge-sa    { color: var(--teal);   border-color: rgba(94,240,200,0.3); background: rgba(94,240,200,0.07); }
+    .badge-beh   { color: var(--amber);  border-color: rgba(255,179,71,0.3); background: rgba(255,179,71,0.07); }
+    .badge-sys   { color: var(--blue);   border-color: rgba(110,181,255,0.3); background: rgba(110,181,255,0.07); }
+    .q-counter {
+      font-size: 12px;
+      color: var(--text-faint);
+      font-family: 'DM Mono', monospace;
+    }
+
+    .question-card {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+      font-size: 16px;
+      line-height: 1.65;
+      min-height: 80px;
+    }
+    .hint-line {
+      font-size: 12px;
+      color: var(--text-faint);
+      font-family: 'DM Mono', monospace;
+      margin-bottom: 10px;
+    }
+    .hint-line span { color: var(--accent); }
+
+    textarea {
+      width: 100%;
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      resize: vertical;
+      min-height: 150px;
+      transition: border-color 0.2s;
+    }
+    textarea:focus { outline: none; border-color: var(--border-hover); }
+    textarea::placeholder { color: var(--text-faint); }
+
+    .action-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .btn-submit {
+      flex: 1;
+      padding: 11px;
+      background: var(--accent);
+      color: var(--accent-text);
+      border: none;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-weight: 600;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-submit:hover { opacity: 0.88; }
+    .btn-submit:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .btn-ghost {
+      padding: 11px 18px;
+      background: transparent;
+      color: var(--text-muted);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-ghost:hover { border-color: var(--border-hover); color: var(--text); }
+
+    /* Feedback */
+    .feedback-wrap { display: none; margin-top: 1.25rem; }
+    .feedback-card {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+    }
+    .loading-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--text-muted);
+      padding: 0.5rem 0;
+    }
+    .dots { display: flex; gap: 4px; }
+    .dots span {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--text-faint);
+      animation: blink 1.3s infinite;
+    }
+    .dots span:nth-child(2) { animation-delay: 0.22s; }
+    .dots span:nth-child(3) { animation-delay: 0.44s; }
+    @keyframes blink { 0%,80%,100%{opacity:0.2} 40%{opacity:1} }
+
+    .score-chips { display: flex; gap: 8px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+    .chip {
+      font-size: 12px;
+      font-family: 'DM Mono', monospace;
+      padding: 5px 12px;
+      border-radius: 20px;
+      border: 0.5px solid;
+    }
+    .chip-high { color: var(--accent); border-color: rgba(200,240,96,0.3); background: rgba(200,240,96,0.08); }
+    .chip-mid  { color: var(--amber);  border-color: rgba(255,179,71,0.3); background: rgba(255,179,71,0.08); }
+    .chip-low  { color: var(--red);    border-color: rgba(255,107,107,0.3); background: rgba(255,107,107,0.08); }
+
+    .fb-section-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-faint);
+      font-family: 'DM Mono', monospace;
+      margin-bottom: 6px;
+    }
+    .fb-body {
+      font-size: 14px;
+      line-height: 1.75;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+      white-space: pre-wrap;
+    }
+    .fb-ideal {
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--accent);
+      font-family: 'DM Mono', monospace;
+      background: var(--accent-dim);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      border-left: 2px solid var(--accent);
+      margin-bottom: 1.25rem;
+    }
+    .next-btn-wrap { margin-top: 0.5rem; }
+    .btn-next {
+      width: 100%;
+      padding: 11px;
+      background: transparent;
+      color: var(--text);
+      border: 0.5px solid var(--border-hover);
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .btn-next:hover { background: var(--surface2); border-color: var(--accent); color: var(--accent); }
+
+    /* Summary */
+    .summary-section { display: none; }
+    .summary-title { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+    .summary-sub { font-size: 14px; color: var(--text-muted); margin-bottom: 1.75rem; }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      margin-bottom: 1.75rem;
+    }
+    .metric-tile {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      text-align: center;
+    }
+    .metric-num {
+      font-size: 28px;
+      font-weight: 600;
+      font-family: 'DM Mono', monospace;
+      color: var(--accent);
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .metric-lbl { font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.06em; }
+
+    .debrief-box {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      font-size: 14px;
+      line-height: 1.8;
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+    }
+    .btn-reset {
+      width: 100%;
+      padding: 13px;
+      background: var(--surface);
+      color: var(--text);
+      border: 0.5px solid var(--border-hover);
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-reset:hover { background: var(--surface2); }
+
+    @media (max-width: 520px) {
+      .config-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header class="site-header">
+    <span class="logo">interview.sim</span>
+    <span class="header-tag">ANGAD GUNBHARIT // v1.0</span>
+  </header>
+
+  <!-- Setup -->
+  <div id="setupSection">
+    <h1 class="setup-title">Mock interview<br>simulator</h1>
+    <p class="setup-subtitle">Personalized for your background in PM, Solutions Architecture &amp; Cloud.</p>
+
+    <div class="config-grid">
+      <div class="config-group">
+        <label>Focus</label>
+        <select id="focus">
+          <option value="pm">Product Manager</option>
+          <option value="sa">Solutions Architect</option>
+          <option value="mixed" selected>Mixed (PM + SA)</option>
+        </select>
+      </div>
+      <div class="config-group">
+        <label>Difficulty</label>
+        <select id="difficulty">
+          <option value="mid">Mid-level</option>
+          <option value="senior" selected>Senior</option>
+          <option value="staff">Staff / Principal</option>
+        </select>
+      </div>
+    </div>
+    <div class="config-grid">
+      <div class="config-group">
+        <label>Company type</label>
+        <select id="company">
+          <option value="faang">FAANG / Big Tech</option>
+          <option value="startup">Growth Startup</option>
+          <option value="enterprise" selected>Enterprise / B2B SaaS</option>
+          <option value="fintech">FinTech</option>
+        </select>
+      </div>
+      <div class="config-group">
+        <label>Questions</label>
+        <select id="qcount">
+          <option value="3">3 — quick round</option>
+          <option value="5" selected>5 — standard</option>
+          <option value="8">8 — full loop</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="btn-start" id="startBtn" onclick="startInterview()">Start interview →</button>
+  </div>
+
+  <!-- Interview -->
+  <div class="interview-section" id="interviewSection">
+    <div class="prog-track"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+    <div class="q-header">
+      <span class="q-type-badge badge-pm" id="qBadge">Product</span>
+      <span class="q-counter" id="qCounter">1 / 5</span>
+    </div>
+    <div class="question-card" id="questionCard">Loading...</div>
+    <div class="hint-line">Hint: <span id="hintText">structure your answer clearly</span></div>
+    <textarea id="answerBox" placeholder="Write your answer here. Aim for 150–350 words. Use STAR for behavioral, frameworks for product/technical."></textarea>
+    <div class="action-row">
+      <button class="btn-submit" id="submitBtn" onclick="submitAnswer()">Get feedback</button>
+      <button class="btn-ghost" onclick="skipQuestion()">Skip</button>
+    </div>
+    <div class="feedback-wrap" id="feedbackWrap">
+      <div class="feedback-card">
+        <div class="loading-row" id="fbLoading">
+          <span>Analyzing your answer</span>
+          <div class="dots"><span></span><span></span><span></span></div>
+        </div>
+        <div id="fbContent" style="display:none;">
+          <div class="score-chips" id="scoreChips"></div>
+          <div class="fb-section-label">Strengths</div>
+          <div class="fb-body" id="fbStrengths"></div>
+          <div class="fb-section-label">Areas to improve</div>
+          <div class="fb-body" id="fbImprovements"></div>
+          <div class="fb-section-label">Ideal angle</div>
+          <div class="fb-ideal" id="fbIdeal"></div>
+          <div class="next-btn-wrap"><button class="btn-next" id="nextBtn" onclick="nextQuestion()">Next question →</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="summary-section" id="summarySection">
+    <h2 class="summary-title">Round complete</h2>
+    <p class="summary-sub">Here's how you did across the session.</p>
+    <div class="metrics-grid" id="metricsGrid"></div>
+    <div class="debrief-box" id="debriefBox">Generating debrief...</div>
+    <button class="btn-reset" onclick="resetAll()">← Start new round</button>
+  </div>
+</div>
+
+<script>
+const PROFILE = `Angad Gunbharit — Solutions Architect at Phenom (current). Former: Technical PM at IpserLab (1yr), Technical Consultant/PM at Malloy Group (8mo), Product Strategy & Engineering at Amdocs (1yr), Product Engineer at Capgemini (1yr 10mo). MSIS from University of San Francisco. Skills: Product Management, Business Strategy, GTM, AWS, Azure, Java, Python, SQL, Angular, Spring, Power BI. Experience with SaaS, FinTech, enterprise clients, 10K+ user platforms.`;
+
+const badgeMap = { pm:'badge-pm', sa:'badge-sa', behavioral:'badge-beh', system_design:'badge-sys' };
+const badgeLabel = { pm:'Product', sa:'Solutions Arch', behavioral:'Behavioral', system_design:'System Design' };
+
+let questions=[], currentQ=0, scores=[], totalQ=5;
+
+async function callClaude(messages, system) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:1000, system, messages })
+  });
+  const d = await res.json();
+  return d.content.map(b=>b.text||'').join('');
+}
+
+async function startInterview() {
+  const focus=document.getElementById('focus').value;
+  const difficulty=document.getElementById('difficulty').value;
+  const company=document.getElementById('company').value;
+  totalQ=parseInt(document.getElementById('qcount').value);
+  const btn=document.getElementById('startBtn');
+  btn.disabled=true; btn.textContent='Generating questions...';
+  const system=`You are an expert interviewer. Generate exactly ${totalQ} interview questions as a JSON array. Each object: {"question":"...","type":"pm|sa|behavioral|system_design","hint":"one-line framework tip"}. Focus: ${focus}. Difficulty: ${difficulty}. Company: ${company}. Tailor to: ${PROFILE}. Return ONLY a JSON array, no markdown.`;
+  try {
+    const raw=await callClaude([{role:'user',content:`Generate ${totalQ} questions.`}], system);
+    questions=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    currentQ=0; scores=[];
+    document.getElementById('setupSection').style.display='none';
+    document.getElementById('interviewSection').style.display='block';
+    loadQ();
+  } catch(e) {
+    btn.disabled=false; btn.textContent='Start interview →';
+    alert('Failed to generate questions. Check your connection and try again.');
+  }
+}
+
+function loadQ() {
+  const q=questions[currentQ];
+  document.getElementById('progFill').style.width=((currentQ/totalQ)*100)+'%';
+  document.getElementById('qCounter').textContent=`${currentQ+1} / ${totalQ}`;
+  const badge=document.getElementById('qBadge');
+  badge.textContent=badgeLabel[q.type]||q.type;
+  badge.className='q-type-badge '+(badgeMap[q.type]||'badge-pm');
+  document.getElementById('questionCard').textContent=q.question;
+  document.getElementById('hintText').textContent=q.hint||'structure your answer clearly';
+  document.getElementById('answerBox').value='';
+  document.getElementById('feedbackWrap').style.display='none';
+  document.getElementById('fbContent').style.display='none';
+  document.getElementById('fbLoading').style.display='flex';
+  document.getElementById('submitBtn').disabled=false;
+  document.getElementById('submitBtn').textContent='Get feedback';
+}
+
+async function submitAnswer() {
+  const answer=document.getElementById('answerBox').value.trim();
+  if(!answer||answer.length<20){alert('Please write a more complete answer before submitting.');return;}
+  document.getElementById('submitBtn').disabled=true;
+  document.getElementById('submitBtn').textContent='Analyzing...';
+  document.getElementById('feedbackWrap').style.display='block';
+  document.getElementById('fbLoading').style.display='flex';
+  document.getElementById('fbContent').style.display='none';
+  const q=questions[currentQ];
+  const system=`You are a senior interviewer giving structured feedback. Respond ONLY as JSON: {"structure_score":1-10,"content_score":1-10,"confidence_score":1-10,"strengths":"2-3 sentences","improvements":"2-3 sentences","ideal_angle":"1-2 sentences on what a top answer highlights"}. Be specific to the candidate's background. No markdown.`;
+  try {
+    const raw=await callClaude([{role:'user',content:`Question: ${q.question}\nCandidate: ${PROFILE}\nAnswer: ${answer}`}], system);
+    const fb=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    scores.push({s:fb.structure_score,c:fb.content_score,d:fb.confidence_score});
+    const chips=document.getElementById('scoreChips');
+    chips.innerHTML='';
+    [{l:'Structure',v:fb.structure_score},{l:'Content',v:fb.content_score},{l:'Delivery',v:fb.confidence_score}].forEach(x=>{
+      const cls=x.v>=8?'chip-high':x.v>=6?'chip-mid':'chip-low';
+      chips.innerHTML+=`<span class="chip ${cls}">${x.l}: ${x.v}/10</span>`;
+    });
+    document.getElementById('fbStrengths').textContent=fb.strengths;
+    document.getElementById('fbImprovements').textContent=fb.improvements;
+    document.getElementById('fbIdeal').textContent=fb.ideal_angle;
+    document.getElementById('fbLoading').style.display='none';
+    document.getElementById('fbContent').style.display='block';
+    document.getElementById('nextBtn').textContent=currentQ+1<totalQ?'Next question →':'See results →';
+  } catch(e) {
+    document.getElementById('fbLoading').style.display='none';
+    document.getElementById('fbContent').style.display='block';
+    document.getElementById('fbStrengths').textContent='Could not parse feedback. Your answer was recorded.';
+    document.getElementById('fbImprovements').textContent='';
+    document.getElementById('fbIdeal').textContent='';
+    scores.push({s:7,c:7,d:7});
+  }
+}
+
+function skipQuestion(){scores.push({s:0,c:0,d:0});nextQuestion();}
+
+function nextQuestion(){currentQ++;currentQ>=totalQ?showSummary():loadQ();}
+
+async function showSummary(){
+  document.getElementById('interviewSection').style.display='none';
+  document.getElementById('summarySection').style.display='block';
+  const answered=scores.filter(s=>s.c>0);
+  const avg=(arr,k)=>answered.length?Math.round(arr.reduce((a,b)=>a+b[k],0)/answered.length):0;
+  const aS=avg(answered,'s'),aC=avg(answered,'c'),aD=avg(answered,'d');
+  const overall=Math.round((aS+aC+aD)/3);
+  document.getElementById('metricsGrid').innerHTML=`
+    <div class="metric-tile"><div class="metric-num">${overall}/10</div><div class="metric-lbl">Overall</div></div>
+    <div class="metric-tile"><div class="metric-num">${aS}/10</div><div class="metric-lbl">Structure</div></div>
+    <div class="metric-tile"><div class="metric-num">${aC}/10</div><div class="metric-lbl">Content</div></div>
+    <div class="metric-tile"><div class="metric-num">${aD}/10</div><div class="metric-lbl">Delivery</div></div>
+    <div class="metric-tile"><div class="metric-num">${answered.length}/${totalQ}</div><div class="metric-lbl">Answered</div></div>`;
+  try {
+    const debrief=await callClaude([{role:'user',content:`Candidate: ${PROFILE}. Scores — Structure:${aS}, Content:${aC}, Delivery:${aD}. Answered:${answered.length}/${totalQ}. Give a 3-4 sentence honest coaching debrief.`}], 'You are a career coach. Give a brief, honest, specific debrief. No markdown, no headers, just prose.');
+    document.getElementById('debriefBox').textContent=debrief;
+  } catch(e){document.getElementById('debriefBox').textContent='Great effort completing the session. Review each question\'s feedback to identify patterns in your answers.';}
+}
+
+function resetAll(){
+  questions=[];currentQ=0;scores=[];
+  document.getElementById('summarySection').style.display='none';
+  document.getElementById('setupSection').style.display='block';
+  const btn=document.getElementById('startBtn');btn.disabled=false;btn.textContent='Start interview →';
+}
+</script>
+</body>
+</html>
