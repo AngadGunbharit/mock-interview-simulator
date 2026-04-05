@@ -80,6 +80,33 @@
     .setup-title { font-size: 28px; font-weight: 600; margin-bottom: 8px; line-height: 1.2; }
     .setup-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 1.5rem; line-height: 1.65; }
 
+    .profile-group { margin-bottom: 1.25rem; }
+    .profile-group label {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-faint);
+      margin-bottom: 7px;
+      font-family: 'DM Mono', monospace;
+    }
+    .profile-input {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 14px;
+      font-family: 'DM Sans', sans-serif;
+      transition: border-color 0.2s;
+      resize: none;
+      min-height: 72px;
+      line-height: 1.6;
+    }
+    .profile-input:focus { outline: none; border-color: var(--accent); }
+    .profile-input::placeholder { color: var(--text-faint); }
+
     .feature-pills { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 2rem; }
     .pill {
       font-size: 11px;
@@ -124,29 +151,6 @@
     select:focus, .api-input:focus { outline: none; border-color: var(--accent); }
     select option { background: #1e1e1e; }
     .api-input::placeholder { color: var(--text-faint); }
-
-    .api-group { margin-bottom: 1.25rem; }
-    .api-group label {
-      display: block;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--text-faint);
-      margin-bottom: 7px;
-      font-family: 'DM Mono', monospace;
-    }
-    .api-note {
-      font-size: 11px;
-      color: var(--text-faint);
-      margin-top: 7px;
-      font-family: 'DM Mono', monospace;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .api-note a { color: var(--text-muted); text-decoration: none; border-bottom: 0.5px solid var(--border); }
-    .api-note a:hover { color: var(--text); border-color: var(--text-muted); }
 
     .btn-start {
       width: 100%;
@@ -409,13 +413,18 @@
   <!-- Setup -->
   <div id="setupSection">
     <h1 class="setup-title">Mock interview<br>simulator</h1>
-    <p class="setup-subtitle">AI-powered practice tailored to your background in PM, Solutions Architecture &amp; Cloud. Get real-time feedback on structure, content, and delivery.</p>
+    <p class="setup-subtitle">AI-powered interview practice with real-time feedback on structure, content, and delivery. Personalized to your background.</p>
 
     <div class="feature-pills">
       <span class="pill pill-accent">AI Feedback</span>
       <span class="pill">PM · SA · Behavioral · System Design</span>
       <span class="pill">Scored 1–10</span>
       <span class="pill">Personalized to your profile</span>
+    </div>
+
+    <div class="profile-group">
+      <label>Your background <span style="color:var(--text-faint);font-weight:400;text-transform:none;letter-spacing:0">(optional — makes questions more relevant)</span></label>
+      <textarea class="profile-input" id="userProfile" placeholder="e.g. Senior PM at a B2B SaaS company, 5 years experience, focused on growth and enterprise products..."></textarea>
     </div>
 
     <div class="config-grid">
@@ -524,7 +533,12 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const PROFILE = `Angad Gunbharit — Solutions Architect at Phenom (current). Former: Technical PM at IpserLab (1yr), Technical Consultant/PM at Malloy Group (8mo), Product Strategy & Engineering at Amdocs (1yr), Product Engineer at Capgemini (1yr 10mo). MSIS from University of San Francisco. Skills: Product Management, Business Strategy, GTM, AWS, Azure, Java, Python, SQL, Angular, Spring, Power BI. Experience with SaaS, FinTech, enterprise clients, 10K+ user platforms.`;
+const DEFAULT_PROFILE = `Angad Gunbharit — Solutions Architect at Phenom. Former Technical PM and Consultant across SaaS, FinTech, and enterprise. MSIS from USF. Skills: PM, AWS, Azure, Java, Python, SQL, Power BI.`;
+
+function getProfile() {
+  const custom = document.getElementById('userProfile').value.trim();
+  return custom || DEFAULT_PROFILE;
+}
 
 const badgeMap   = { pm:'badge-pm', sa:'badge-sa', behavioral:'badge-beh', system_design:'badge-sys' };
 const badgeLabel = { pm:'Product', sa:'Solutions Arch', behavioral:'Behavioral', system_design:'System Design' };
@@ -534,7 +548,7 @@ const compLabel  = { faang:'FAANG / Big Tech', startup:'Growth Startup', enterpr
 
 const WORKER_URL = 'https://young-smoke-8ed6.gunbharitangad.workers.dev';
 
-let questions = [], currentQ = 0, scores = [], savedAnswers = [], totalQ = 5, sessionConfig = {};
+let questions = [], currentQ = 0, scores = {}, savedAnswers = [], totalQ = 5, sessionConfig = {};
 
 function showError(id, msg) {
   const el = document.getElementById(id);
@@ -566,12 +580,13 @@ async function callGroq(systemPrompt, userContent, jsonMode = false) {
         { role: 'system', content: systemPrompt },
         { role: 'user',   content: userContent },
       ],
-      max_tokens: 1000,
+      max_tokens: 1500,
       json_mode: jsonMode,
     }),
   });
   const d = await res.json();
   if (d.error) throw new Error(d.error.message);
+  if (!d.choices || !d.choices[0]) throw new Error('No response from AI');
   return d.choices[0].message.content;
 }
 
@@ -585,11 +600,12 @@ async function startInterview() {
   btn.disabled = true;
   btn.textContent = 'Generating questions...';
   const seed = Math.random().toString(36).slice(2, 8);
-  const system = `You are an expert interviewer. Generate exactly ${totalQ} unique interview questions as a JSON array. Each object: {"question":"...","type":"pm|sa|behavioral|system_design","hint":"one-line framework tip"}. Focus: ${focus}. Difficulty: ${difficulty}. Company: ${company}. Tailor to: ${PROFILE}. Mix question types for variety. Session seed: ${seed}. Return ONLY the raw JSON array, no markdown, no extra text.`;
+  const profile = getProfile();
+  const system = `You are an expert interviewer. Generate exactly ${totalQ} unique interview questions as a JSON array. Each object: {"question":"...","type":"pm|sa|behavioral|system_design","hint":"one-line framework tip"}. Focus: ${focus}. Difficulty: ${difficulty}. Company: ${company}. Candidate background: ${profile}. Mix question types for variety. Session seed: ${seed}. Return ONLY the raw JSON array, no markdown, no extra text.`;
   try {
     const raw = await callGroq(system, `Generate ${totalQ} fresh, varied questions. Seed: ${seed}`);
     questions = JSON.parse(raw.replace(/```json|```/g, '').trim());
-    currentQ = 0; scores = []; savedAnswers = [];
+    currentQ = 0; scores = {}; savedAnswers = [];
     document.getElementById('setupSection').style.display = 'none';
     const is = document.getElementById('interviewSection');
     is.style.display = 'block';
@@ -598,7 +614,7 @@ async function startInterview() {
   } catch(e) {
     btn.disabled = false;
     btn.textContent = 'Start interview →';
-    showError('setupError', 'Could not generate questions. Check your API key and try again.');
+    showError('setupError', 'Could not generate questions. Please check your connection and try again.');
   }
 }
 
@@ -629,7 +645,7 @@ function loadQ() {
 
 function goBack() {
   savedAnswers[currentQ] = document.getElementById('answerBox').value;
-  scores.splice(currentQ, 1);
+  delete scores[currentQ];
   currentQ--;
   loadQ();
 }
@@ -649,9 +665,9 @@ async function submitAnswer() {
   const q = questions[currentQ];
   const system = `You are a senior interviewer giving structured feedback. Respond ONLY as JSON: {"structure_score":1-10,"content_score":1-10,"confidence_score":1-10,"strengths":"2-3 sentences","improvements":"2-3 sentences","ideal_angle":"1-2 sentences on what a top answer highlights"}. Be specific to the candidate's background. No markdown.`;
   try {
-    const raw = await callGroq(system, `Question: ${q.question}\nCandidate: ${PROFILE}\nAnswer: ${answer}`, true);
+    const raw = await callGroq(system, `Question: ${q.question}\nCandidate: ${getProfile()}\nAnswer: ${answer}`, true);
     const fb = JSON.parse(raw.replace(/```json|```/g, '').trim());
-    scores.push({ s: fb.structure_score, c: fb.content_score, d: fb.confidence_score });
+    scores[currentQ] = { s: fb.structure_score, c: fb.content_score, d: fb.confidence_score };
     const chips = document.getElementById('scoreChips');
     chips.innerHTML = '';
     [{ l: 'Structure', v: fb.structure_score }, { l: 'Content', v: fb.content_score }, { l: 'Delivery', v: fb.confidence_score }].forEach(x => {
@@ -670,19 +686,20 @@ async function submitAnswer() {
     document.getElementById('fbStrengths').textContent = 'Could not parse feedback. Your answer was recorded.';
     document.getElementById('fbImprovements').textContent = '';
     document.getElementById('fbIdeal').textContent = '';
-    scores.push({ s: 7, c: 7, d: 7 });
+    scores[currentQ] = { s: 7, c: 7, d: 7 };
   }
 }
 
-function skipQuestion() { scores.push({ s: 0, c: 0, d: 0 }); nextQuestion(); }
+function skipQuestion() { scores[currentQ] = { s: 0, c: 0, d: 0 }; nextQuestion(); }
 function nextQuestion() { currentQ++; currentQ >= totalQ ? showSummary() : loadQ(); }
 
 async function showSummary() {
   document.getElementById('interviewSection').style.display = 'none';
   const ss = document.getElementById('summarySection');
   ss.style.display = 'block';
-  const answered = scores.filter(s => s.c > 0);
-  const avg = (arr, k) => answered.length ? Math.round(arr.reduce((a, b) => a + b[k], 0) / answered.length) : 0;
+  const allScores = Object.values(scores);
+  const answered = allScores.filter(s => s.c > 0);
+  const avg = (arr, k) => arr.length ? Math.round(arr.reduce((a, b) => a + b[k], 0) / arr.length) : 0;
   const aS = avg(answered, 's'), aC = avg(answered, 'c'), aD = avg(answered, 'd');
   const overall = Math.round((aS + aC + aD) / 3);
   const cfg = sessionConfig;
@@ -711,7 +728,7 @@ async function showSummary() {
   try {
     const debrief = await callGroq(
       'You are a career coach. Give a brief, honest, specific debrief. No markdown, no headers, just prose.',
-      `Candidate: ${PROFILE}. Scores — Structure:${aS}, Content:${aC}, Delivery:${aD}. Answered:${answered.length}/${totalQ}. Focus: ${cfg.focus}. Give a 3-4 sentence honest coaching debrief.`
+      `Candidate: ${getProfile()}. Scores — Structure:${aS}, Content:${aC}, Delivery:${aD}. Answered:${answered.length}/${totalQ}. Focus: ${cfg.focus}. Give a 3-4 sentence honest coaching debrief.`
     );
     document.getElementById('debriefBox').textContent = debrief;
   } catch(e) {
@@ -721,8 +738,8 @@ async function showSummary() {
 
 function shareResults() {
   const cfg = sessionConfig;
-  const answered = scores.filter(s => s.c > 0);
-  const avg = (arr, k) => answered.length ? Math.round(arr.reduce((a, b) => a + b[k], 0) / answered.length) : 0;
+  const answered = Object.values(scores).filter(s => s.c > 0);
+  const avg = (arr, k) => arr.length ? Math.round(arr.reduce((a, b) => a + b[k], 0) / arr.length) : 0;
   const aS = avg(answered, 's'), aC = avg(answered, 'c'), aD = avg(answered, 'd');
   const overall = Math.round((aS + aC + aD) / 3);
   const text = [
@@ -736,13 +753,13 @@ function shareResults() {
     `${answered.length}/${totalQ} questions answered`,
     `${focusLabel[cfg.focus] || cfg.focus} · ${diffLabel[cfg.difficulty] || cfg.difficulty} · ${compLabel[cfg.company] || cfg.company}`,
     ``,
-    `Built by Angad Gunbharit · Powered by Claude AI`,
+    `Built by Angad Gunbharit · Powered by Groq AI`,
   ].join('\n');
   navigator.clipboard.writeText(text).then(() => showToast('Results copied to clipboard!'));
 }
 
 function resetAll() {
-  questions = []; currentQ = 0; scores = []; savedAnswers = []; sessionConfig = {};
+  questions = []; currentQ = 0; scores = {}; savedAnswers = []; sessionConfig = {};
   document.getElementById('summarySection').style.display = 'none';
   document.getElementById('setupSection').style.display = 'block';
   const btn = document.getElementById('startBtn');
