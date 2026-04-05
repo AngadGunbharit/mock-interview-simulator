@@ -399,15 +399,6 @@
       <span class="pill">Personalized to your profile</span>
     </div>
 
-    <div class="api-group">
-      <label>Anthropic API key</label>
-      <input type="password" class="api-input" id="apiKey" placeholder="sk-ant-..." autocomplete="off" />
-      <div class="api-note">
-        <span>Stored in your browser only. Never leaves your device except to Anthropic's API.</span>
-        <a href="https://console.anthropic.com/account/keys" target="_blank" rel="noopener">Get a key →</a>
-      </div>
-    </div>
-
     <div class="config-grid">
       <div class="config-group">
         <label>Focus</label>
@@ -449,7 +440,7 @@
     <button class="btn-start" id="startBtn" onclick="startInterview()">Start interview →</button>
     <div class="error-msg" id="setupError"></div>
 
-    <div class="powered-note">Powered by Claude AI · Built by Angad Gunbharit</div>
+    <div class="powered-note">Powered by Groq AI · Built by Angad Gunbharit</div>
   </div>
 
   <!-- Interview -->
@@ -521,16 +512,9 @@ const focusLabel = { pm:'Product Manager', sa:'Solutions Architect', mixed:'Mixe
 const diffLabel  = { mid:'Mid-level', senior:'Senior', staff:'Staff / Principal' };
 const compLabel  = { faang:'FAANG / Big Tech', startup:'Growth Startup', enterprise:'Enterprise / B2B SaaS', fintech:'FinTech' };
 
+const WORKER_URL = 'https://young-smoke-8ed6.gunbharitangad.workers.dev';
+
 let questions = [], currentQ = 0, scores = [], totalQ = 5, sessionConfig = {};
-
-const savedKey = localStorage.getItem('sim_api_key');
-if (savedKey) document.getElementById('apiKey').value = savedKey;
-
-function getApiKey() {
-  const key = document.getElementById('apiKey').value.trim();
-  if (key) localStorage.setItem('sim_api_key', key);
-  return key;
-}
 
 function showError(id, msg) {
   const el = document.getElementById(id);
@@ -553,29 +537,25 @@ function updateWordCount() {
   el.className = 'word-count' + (words >= 150 && words <= 350 ? ' in-range' : '');
 }
 
-async function callClaude(messages, system) {
-  const key = getApiKey();
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+async function callGroq(systemPrompt, userContent, jsonMode = false) {
+  const res = await fetch(WORKER_URL, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000, system, messages })
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user',   content: userContent },
+      ],
+      max_tokens: 1000,
+      json_mode: jsonMode,
+    }),
   });
   const d = await res.json();
   if (d.error) throw new Error(d.error.message);
-  return d.content.map(b => b.text || '').join('');
+  return d.choices[0].message.content;
 }
 
 async function startInterview() {
-  const key = document.getElementById('apiKey').value.trim();
-  if (!key || !key.startsWith('sk-ant-')) {
-    showError('setupError', 'Please enter a valid Anthropic API key (starts with sk-ant-)');
-    return;
-  }
   const focus      = document.getElementById('focus').value;
   const difficulty = document.getElementById('difficulty').value;
   const company    = document.getElementById('company').value;
@@ -584,9 +564,9 @@ async function startInterview() {
   const btn = document.getElementById('startBtn');
   btn.disabled = true;
   btn.textContent = 'Generating questions...';
-  const system = `You are an expert interviewer. Generate exactly ${totalQ} interview questions as a JSON array. Each object: {"question":"...","type":"pm|sa|behavioral|system_design","hint":"one-line framework tip"}. Focus: ${focus}. Difficulty: ${difficulty}. Company: ${company}. Tailor to: ${PROFILE}. Return ONLY a JSON array, no markdown.`;
+  const system = `You are an expert interviewer. Generate exactly ${totalQ} interview questions as a JSON array. Each object: {"question":"...","type":"pm|sa|behavioral|system_design","hint":"one-line framework tip"}. Focus: ${focus}. Difficulty: ${difficulty}. Company: ${company}. Tailor to: ${PROFILE}. Return ONLY the raw JSON array, no markdown, no extra text.`;
   try {
-    const raw = await callClaude([{ role: 'user', content: `Generate ${totalQ} questions.` }], system);
+    const raw = await callGroq(system, `Generate ${totalQ} questions.`);
     questions = JSON.parse(raw.replace(/```json|```/g, '').trim());
     currentQ = 0; scores = [];
     document.getElementById('setupSection').style.display = 'none';
@@ -637,7 +617,7 @@ async function submitAnswer() {
   const q = questions[currentQ];
   const system = `You are a senior interviewer giving structured feedback. Respond ONLY as JSON: {"structure_score":1-10,"content_score":1-10,"confidence_score":1-10,"strengths":"2-3 sentences","improvements":"2-3 sentences","ideal_angle":"1-2 sentences on what a top answer highlights"}. Be specific to the candidate's background. No markdown.`;
   try {
-    const raw = await callClaude([{ role: 'user', content: `Question: ${q.question}\nCandidate: ${PROFILE}\nAnswer: ${answer}` }], system);
+    const raw = await callGroq(system, `Question: ${q.question}\nCandidate: ${PROFILE}\nAnswer: ${answer}`, true);
     const fb = JSON.parse(raw.replace(/```json|```/g, '').trim());
     scores.push({ s: fb.structure_score, c: fb.content_score, d: fb.confidence_score });
     const chips = document.getElementById('scoreChips');
@@ -697,10 +677,10 @@ async function showSummary() {
   }, 120);
 
   try {
-    const debrief = await callClaude([{
-      role: 'user',
-      content: `Candidate: ${PROFILE}. Scores — Structure:${aS}, Content:${aC}, Delivery:${aD}. Answered:${answered.length}/${totalQ}. Focus: ${cfg.focus}. Give a 3-4 sentence honest coaching debrief.`
-    }], 'You are a career coach. Give a brief, honest, specific debrief. No markdown, no headers, just prose.');
+    const debrief = await callGroq(
+      'You are a career coach. Give a brief, honest, specific debrief. No markdown, no headers, just prose.',
+      `Candidate: ${PROFILE}. Scores — Structure:${aS}, Content:${aC}, Delivery:${aD}. Answered:${answered.length}/${totalQ}. Focus: ${cfg.focus}. Give a 3-4 sentence honest coaching debrief.`
+    );
     document.getElementById('debriefBox').textContent = debrief;
   } catch(e) {
     document.getElementById('debriefBox').textContent = 'Great effort completing the session. Review each question\'s feedback to identify patterns in your answers.';
