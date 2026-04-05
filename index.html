@@ -71,6 +71,8 @@
       padding-bottom: 1.25rem;
       border-bottom: 0.5px solid var(--border);
     }
+    .header-left { display: flex; align-items: center; gap: 10px; }
+    .logo-img { height: 30px; width: 30px; object-fit: contain; border-radius: 6px; }
     .logo { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--accent); letter-spacing: 0.04em; }
     .header-tag { font-size: 11px; color: var(--text-faint); font-family: 'DM Mono', monospace; letter-spacing: 0.06em; }
 
@@ -186,7 +188,21 @@
     .prog-track { height: 2px; background: var(--border); border-radius: 2px; margin-bottom: 1.75rem; overflow: hidden; }
     .prog-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.5s ease; }
 
-    .q-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .q-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 10px; }
+    .btn-back {
+      padding: 5px 12px;
+      background: transparent;
+      color: var(--text-faint);
+      border: 0.5px solid var(--border);
+      border-radius: 20px;
+      font-size: 12px;
+      font-family: 'DM Mono', monospace;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+      display: none;
+    }
+    .btn-back:hover { color: var(--text); border-color: var(--border-hover); }
+    .btn-back.visible { display: inline-block; }
     .q-type-badge {
       font-size: 11px;
       font-family: 'DM Mono', monospace;
@@ -383,7 +399,10 @@
 <body>
 <div class="app">
   <header class="site-header">
-    <span class="logo">interview.sim</span>
+    <div class="header-left">
+      <img src="angad-vibes.png" alt="Angad Vibes" class="logo-img" onerror="this.style.display='none'" />
+      <span class="logo">interview.sim</span>
+    </div>
     <span class="header-tag">ANGAD GUNBHARIT // v2.0</span>
   </header>
 
@@ -447,6 +466,7 @@
   <div id="interviewSection" style="display:none;">
     <div class="prog-track"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
     <div class="q-header">
+      <button class="btn-back" id="backBtn" onclick="goBack()">← Back</button>
       <span class="q-type-badge badge-pm" id="qBadge">Product</span>
       <span class="q-counter" id="qCounter">1 / 5</span>
     </div>
@@ -514,7 +534,7 @@ const compLabel  = { faang:'FAANG / Big Tech', startup:'Growth Startup', enterpr
 
 const WORKER_URL = 'https://young-smoke-8ed6.gunbharitangad.workers.dev';
 
-let questions = [], currentQ = 0, scores = [], totalQ = 5, sessionConfig = {};
+let questions = [], currentQ = 0, scores = [], savedAnswers = [], totalQ = 5, sessionConfig = {};
 
 function showError(id, msg) {
   const el = document.getElementById(id);
@@ -564,11 +584,12 @@ async function startInterview() {
   const btn = document.getElementById('startBtn');
   btn.disabled = true;
   btn.textContent = 'Generating questions...';
-  const system = `You are an expert interviewer. Generate exactly ${totalQ} interview questions as a JSON array. Each object: {"question":"...","type":"pm|sa|behavioral|system_design","hint":"one-line framework tip"}. Focus: ${focus}. Difficulty: ${difficulty}. Company: ${company}. Tailor to: ${PROFILE}. Return ONLY the raw JSON array, no markdown, no extra text.`;
+  const seed = Math.random().toString(36).slice(2, 8);
+  const system = `You are an expert interviewer. Generate exactly ${totalQ} unique interview questions as a JSON array. Each object: {"question":"...","type":"pm|sa|behavioral|system_design","hint":"one-line framework tip"}. Focus: ${focus}. Difficulty: ${difficulty}. Company: ${company}. Tailor to: ${PROFILE}. Mix question types for variety. Session seed: ${seed}. Return ONLY the raw JSON array, no markdown, no extra text.`;
   try {
-    const raw = await callGroq(system, `Generate ${totalQ} questions.`);
+    const raw = await callGroq(system, `Generate ${totalQ} fresh, varied questions. Seed: ${seed}`);
     questions = JSON.parse(raw.replace(/```json|```/g, '').trim());
-    currentQ = 0; scores = [];
+    currentQ = 0; scores = []; savedAnswers = [];
     document.getElementById('setupSection').style.display = 'none';
     const is = document.getElementById('interviewSection');
     is.style.display = 'block';
@@ -593,14 +614,24 @@ function loadQ() {
   card.style.animation = 'none';
   requestAnimationFrame(() => { card.style.animation = ''; });
   document.getElementById('hintText').textContent = q.hint || 'structure your answer clearly';
-  document.getElementById('answerBox').value = '';
-  document.getElementById('wordCount').textContent = '0 words';
-  document.getElementById('wordCount').className = 'word-count';
+  const saved = savedAnswers[currentQ] || '';
+  document.getElementById('answerBox').value = saved;
+  updateWordCount();
   document.getElementById('feedbackWrap').style.display = 'none';
   document.getElementById('fbContent').style.display = 'none';
   document.getElementById('fbLoading').style.display = 'flex';
   document.getElementById('submitBtn').disabled = false;
   document.getElementById('submitBtn').textContent = 'Get feedback';
+  const backBtn = document.getElementById('backBtn');
+  if (currentQ > 0) backBtn.classList.add('visible');
+  else backBtn.classList.remove('visible');
+}
+
+function goBack() {
+  savedAnswers[currentQ] = document.getElementById('answerBox').value;
+  scores.splice(currentQ, 1);
+  currentQ--;
+  loadQ();
 }
 
 async function submitAnswer() {
@@ -609,6 +640,7 @@ async function submitAnswer() {
     showToast('Please write a more complete answer first.');
     return;
   }
+  savedAnswers[currentQ] = answer;
   document.getElementById('submitBtn').disabled = true;
   document.getElementById('submitBtn').textContent = 'Analyzing...';
   document.getElementById('feedbackWrap').style.display = 'block';
@@ -710,7 +742,7 @@ function shareResults() {
 }
 
 function resetAll() {
-  questions = []; currentQ = 0; scores = []; sessionConfig = {};
+  questions = []; currentQ = 0; scores = []; savedAnswers = []; sessionConfig = {};
   document.getElementById('summarySection').style.display = 'none';
   document.getElementById('setupSection').style.display = 'block';
   const btn = document.getElementById('startBtn');
